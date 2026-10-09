@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Ask Austin: App Review sign-in</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; background: #080a08; color: #f6f7f6; margin: 0; padding: 24px; line-height: 1.5; }
+  main { max-width: 480px; margin: auto; }
+  h1 { font-size: 1.4rem; }
+  ol { padding-left: 1.2rem; }
+  label { display: block; margin: 16px 0 6px; }
+  input { width: 100%; box-sizing: border-box; font-size: 1.1rem; padding: 12px; border-radius: 12px; border: 1px solid #3a3f3a; background: #111511; color: #f6f7f6; }
+  button { margin-top: 12px; width: 100%; min-height: 48px; font-size: 1.05rem; font-weight: 600; border: 0; border-radius: 14px; background: #a3ff12; color: #0b0d0b; }
+  button:disabled { opacity: .6; }
+  #code { font-size: 2.4rem; letter-spacing: .3rem; font-weight: 700; margin: 16px 0 4px; user-select: all; }
+  .muted { color: #a9b0a9; font-size: .95rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Ask Austin: sign-in code for App Review</h1>
+  <p class="muted">For Apple's App Review team only. It works for the review account only.</p>
+  <ol>
+    <li>In the Ask Austin app, go to Account and tap Sign in, enter the review email from the App Review notes, and tap <b>Email me a code</b>.</li>
+    <li>On this page, enter the review passcode from the App Review notes and tap <b>Get my sign-in code</b>.</li>
+    <li>Type the code into the app and tap <b>Sign in</b>.</li>
+  </ol>
+  <form id="f" autocomplete="off">
+    <label for="p">Review passcode</label>
+    <input id="p" name="passcode" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+    <button id="b" type="submit">Get my sign-in code</button>
+  </form>
+  <div id="out" aria-live="polite"></div>
+</main>
+<script>
+  // Only these two endpoints are ever used. ?target=staging is for the owner's staged test before launch.
+  const ENDPOINTS = {
+    live: "https://bndzxctcxtlkfowujukb.supabase.co/functions/v1/api/review/code",
+    staging: "https://bndzxctcxtlkfowujukb.supabase.co/functions/v1/c1review-staging/api/review/code",
+  };
+  const target = new URLSearchParams(location.search).get("target") === "staging" ? "staging" : "live";
+  const out = document.getElementById("out"), btn = document.getElementById("b"), input = document.getElementById("p");
+  const say = (html) => { out.innerHTML = html; };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  document.getElementById("f").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    btn.disabled = true; say('<p class="muted">Getting a code…</p>');
+    try {
+      const r = await fetch(ENDPOINTS[target], { method: "POST", headers: { "content-type": "text/plain" }, body: JSON.stringify({ passcode: input.value }), cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" });
+      const j = await r.json().catch(() => ({}));
+      input.value = "";
+      if (r.ok && j.code) {
+        say('<p>Your sign-in code for <b>' + esc(j.email) + '</b>:</p><div id="code">' + esc(j.code) + '</div><p class="muted">' + esc(j.note || "") + '</p>');
+      } else if (r.status === 404) {
+        say('<p>Review sign-in is closed. Please contact us through App Store Connect.</p>');
+      } else {
+        say('<p>' + esc(j.message || "Something went wrong. Please try again in a minute.") + '</p>');
+      }
+    } catch {
+      say('<p>Could not reach the server. Check the connection and try again.</p>');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  if (target === "staging") say('<p class="muted">Staging test mode.</p>');
+</script>
+</body>
+</html>
